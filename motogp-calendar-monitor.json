@@ -1,0 +1,254 @@
+{
+  "name": "MotoGP 2027 - monitor kalendarza",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 13 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "389033f9-4362-40fb-850c-73b50f9dee6d",
+      "name": "Schedule Trigger - 13:00"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $('Code - parsuj JSON').item.json.message_pl }}",
+        "additionalFields": {
+          "disable_notification": "={{ $json.status === 'no_change' }}",
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1648,
+        -32
+      ],
+      "id": "cdbd0ef9-831a-4e65-94e8-60fd86838529",
+      "name": "Telegram - wyslij",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "445d5d23-6330-459e-bfa9-cd82f9d24355",
+              "leftValue": "={{ $('Code - parsuj JSON').item.json.should_send }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1424,
+        -32
+      ],
+      "id": "ef268dd0-716c-45a7-a2ce-ed3ea5f67f46",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/.n8n-files/motogp_2027_state.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        -144
+      ],
+      "id": "040e6fc7-8a2e-4003-bea8-4220597f51a5",
+      "name": "Odczyt stanu z pliku",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/node/.n8n-files/motogp_2027_state.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1232,
+        -304
+      ],
+      "id": "7fc46889-f015-4a98-85b6-03bcf8db77e4",
+      "name": "Zapis stanu do pliku",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json.known_rounds_json;\nreturn [{\n  json: $json,\n  binary: {\n    data: {\n      data: Buffer.from(text, 'utf8').toString('base64'),\n      mimeType: 'application/json',\n      fileName: 'motogp_2027_state.json'\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        -304
+      ],
+      "id": "61af6934-6f44-4abb-8136-981f30237aa7",
+      "name": "Przygotuj plik binarny"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "perplexityApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"sonar\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Jestes asystentem monitorujacym WYLACZNIE kalendarz wyscigow MotoGP na sezon 2027 (nazwy GP, tory/miasta, daty, status potwierdzenia). NIE analizuj ani nie wspominaj o zmianach technicznych (opony, silniki, regulaminy) - to poza zakresem. ZASADY WERYFIKACJI: status 'potwierdzony' tylko dla informacji z motogp.com, Dorna lub FIM; 'niepotwierdzony' gdy potwierdzaja to min. dwa niezalezne zrodla; 'plotka' gdy tylko jedno zrodlo. Dla kazdej rundy podaj pole 'key' - stabilny identyfikator ascii lowercase (np. 'thailand', 'argentina', 'australia', 'aragon'), ZAWSZE taki sam niezaleznie od jezyka w jakim wpisujesz nazwe GP. Nigdy nie grupuj wielu rund w jeden wpis - kazda runda to osobny obiekt, nawet jesli brakuje szczegolow. Zwroc PELNA liste WSZYSTKICH znanych rund w polu known_rounds oraz TYLKO nowe lub zmienione (wzgledem podanej w wiadomosci uzytkownika tabeli) w polu changed_rounds.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"={{ 'Poprzednia tabela (JSON): ' + ($json.state_json || '[]') + '. Sprawdz aktualne informacje o kalendarzu MotoGP 2027 i porownaj z powyzsza tabela.' }}\"\n    }\n  ],\n  \"search_domain_filter\": [\"motogp.com\", \"crash.net\", \"speedweek.com\", \"motorsport.com\", \"gpone.com\", \"-pinterest.com\"],\n  \"search_recency_filter\": \"month\",\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"schema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"has_new_info\": {\"type\": \"boolean\"},\n          \"new_summary_points\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}},\n          \"changed_rounds\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"key\": {\"type\": \"string\", \"description\": \"stabilny identyfikator ascii lowercase, np. thailand, argentina\"},\n                \"gp\": {\"type\": \"string\"},\n                \"tor\": {\"type\": \"string\"},\n                \"data\": {\"type\": \"string\"},\n                \"status\": {\"type\": \"string\", \"enum\": [\"potwierdzony\", \"niepotwierdzony\", \"plotka\"]},\n                \"info\": {\"type\": \"string\"}\n              },\n              \"required\": [\"key\", \"gp\", \"tor\", \"data\", \"status\", \"info\"]\n            }\n          },\n          \"known_rounds\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"key\": {\"type\": \"string\", \"description\": \"stabilny identyfikator ascii lowercase, np. thailand, argentina\"},\n                \"gp\": {\"type\": \"string\"},\n                \"tor\": {\"type\": \"string\"},\n                \"data\": {\"type\": \"string\"},\n                \"status\": {\"type\": \"string\", \"enum\": [\"potwierdzony\", \"niepotwierdzony\", \"plotka\"]},\n                \"info\": {\"type\": \"string\"}\n              },\n              \"required\": [\"key\", \"gp\", \"tor\", \"data\", \"status\", \"info\"]\n            }\n          }\n        },\n        \"required\": [\"has_new_info\", \"new_summary_points\", \"changed_rounds\", \"known_rounds\"]\n      }\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        -336
+      ],
+      "id": "d42d6fe8-88b8-416f-8b63-2263f1cd9f1f",
+      "name": "HTTP Request - Sonar",
+      "credentials": {
+        "perplexityApi": {
+          "name": "Perplexity account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeKey(r) {\n  const text = ((r.gp || '') + ' ' + (r.tor || ''))\n    .toLowerCase()\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\n  const dict = [\n    ['thailand', ['thai', 'tajlandi', 'buriram', 'chang international']],\n    ['argentina', ['argentin', 'buenos aires', 'galvez']],\n    ['australia', ['australi', 'adelaide', 'phillip island']],\n    ['aragon', ['aragon', 'motorland', 'alcaniz']],\n    ['malaysia', ['malaysia', 'malezj', 'sepang']],\n    ['americas', ['americas', 'ameryk', 'austin', 'cota']],\n    ['catalunya', ['catalu', 'barcelona', 'montmelo']],\n    ['france', ['france', 'francj', 'le mans']],\n    ['italy', ['italy', 'wloch', 'mugello']],\n    ['sanmarino', ['san marino', 'misano']],\n    ['japan', ['japan', 'japoni', 'motegi']],\n    ['indonesia', ['indonesi', 'mandalika']],\n    ['valencia', ['valencia', 'ricardo tormo']],\n    ['austria', ['austri', 'red bull ring', 'spielberg']],\n    ['jerez', ['jerez']],\n    ['monaco', ['monaco', 'monako']],\n    ['qatar', ['qatar', 'katar', 'losail']],\n    ['portugal', ['portugal', 'estoril']],\n    ['netherlands', ['assen', 'netherland', 'holandi']],\n    ['germany', ['sachsenring', 'niemc']],\n    ['britain', ['silverstone', 'brytani']],\n    ['hungary', ['hungary', 'weg', 'balaton']]\n  ];\n  for (const [key, patterns] of dict) {\n    if (patterns.some(p => text.includes(p))) return key;\n  }\n  return (r.gp || 'unknown').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z]/g,'');\n}\nconst text = $json.choices[0].message.content;\n\nlet parsed;\ntry {\n  parsed = JSON.parse(text);\n  if (Array.isArray(parsed)) parsed = parsed[0];\n} catch (e) {\n  return [{ json: { should_send: false, message_pl: '', known_rounds_json: '[]', debug_error: e.message, debug_text: text.substring(0, 500) } }];\n}\n\nasync function getPreviousRounds() {\n  try {\n    const prevItem = $('Odczyt stanu z pliku').item;\n    let raw;\n    if (prevItem.binary && prevItem.binary.data) {\n      const buffer = await this.helpers.binaryToBuffer(prevItem.binary.data);\n      raw = buffer.toString('utf8');\n    } else if (prevItem.json && prevItem.json.stdout) {\n      raw = prevItem.json.stdout;\n    } else {\n      raw = JSON.stringify(prevItem.json);\n    }\n    let arr = JSON.parse(raw);\n    if (arr && arr.known_rounds_json) arr = JSON.parse(arr.known_rounds_json);\n    return Array.isArray(arr) ? arr : [];\n  } catch (e) {\n    return [];\n  }\n}\n\nconst statusRank = { potwierdzony: 2, niepotwierdzony: 1, plotka: 0 };\n\nfunction mergeRound(oldR, newR) {\n  if (!oldR) return newR;\n  const oldRank = statusRank[oldR.status] ?? 0;\n  const newRank = statusRank[newR.status] ?? 0;\n  const isPlaceholder = d => !d || d === 'TBA' || d === 'TBD';\n  const keepOldDate = !isPlaceholder(oldR.data) && oldRank >= newRank;\n  return {\n    gp: newR.gp || oldR.gp,\n    tor: newR.tor || oldR.tor,\n    data: keepOldDate ? oldR.data : (newR.data || oldR.data),\n    status: newRank >= oldRank ? newR.status : oldR.status,\n    info: newR.info || oldR.info\n  };\n}\n\nconst previousRounds = await getPreviousRounds();\nconst rawNewRounds = parsed.known_rounds || [];\nrawNewRounds.forEach(r => { r.key = normalizeKey(r); });\npreviousRounds.forEach(r => { r.key = normalizeKey(r); });\n\nconst mergedRounds = rawNewRounds.map(newR => {\n  const oldR = previousRounds.find(r => r.key === newR.key);\n  return mergeRound(oldR, newR);\n});\npreviousRounds.forEach(oldR => {\n  if (!mergedRounds.find(r => r.key === oldR.key)) mergedRounds.push(oldR);\n});\n\nconst changedAfterMerge = mergedRounds.filter(newR => {\n  const oldR = previousRounds.find(r => r.key === newR.key);\n  return !oldR || oldR.status !== newR.status || oldR.data !== newR.data;\n});\n\nconst hasNew = changedAfterMerge.length > 0;\nconst points = parsed.new_summary_points || [];\n\nconst statusEmoji = { potwierdzony: '✅', niepotwierdzony: '⚠️', plotka: '❔' };\n\nfunction renderBlock(r) {\n  const emoji = statusEmoji[r.status] || '•';\n  let block = `${emoji} *${r.gp}*\\n📍 ${r.tor}\\n📅 ${r.data}\\n`;\n  if (r.info) block += `ℹ️ ${r.info}\\n`;\n  return block;\n}\n\nconst isWednesday = $now.setZone('Europe/Warsaw').weekday === 3;\n\nlet message = '';\nlet shouldSend = false;\n\nif (isWednesday) {\n  shouldSend = mergedRounds.length > 0;\n  if (shouldSend) {\n    message = '📅 *Cotygodniowe podsumowanie kalendarza MotoGP 2027:*\\n\\n';\n    message += mergedRounds.map(renderBlock).join('\\n');\n  }\n} else if (hasNew) {\n  shouldSend = true;\n  message = '🆕 *Nowe informacje o kalendarzu MotoGP 2027:*\\n';\n  message += points.length ? points.map(p => '• ' + p).join('\\n') : changedAfterMerge.map(r => `• ${r.gp}: ${r.status}`).join('\\n');\n  message += '\\n\\n*Zaktualizowane rundy:*\\n\\n';\n  message += changedAfterMerge.map(renderBlock).join('\\n');\n}\n\nreturn [{\n  json: {\n    should_send: shouldSend,\n    message_pl: message.trim(),\n    known_rounds_json: JSON.stringify(mergedRounds)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -336
+      ],
+      "id": "1f80bab9-2198-41bc-8c56-9da58f8d5458",
+      "name": "Code - parsuj JSON"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger - 13:00": {
+      "main": [
+        [
+          {
+            "node": "Odczyt stanu z pliku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Telegram - wyslij",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Odczyt stanu z pliku": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - Sonar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zapis stanu do pliku": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Przygotuj plik binarny": {
+      "main": [
+        [
+          {
+            "node": "Zapis stanu do pliku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - Sonar": {
+      "main": [
+        [
+          {
+            "node": "Code - parsuj JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - parsuj JSON": {
+      "main": [
+        [
+          {
+            "node": "Przygotuj plik binarny",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "tags": []
+}
