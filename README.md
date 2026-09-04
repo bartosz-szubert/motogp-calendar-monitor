@@ -115,4 +115,4 @@ Hostinger VPS (KVM) · Docker · n8n self-hosted · Perplexity Sonar API · Tele
 
 ---
 
-Built as one of several small agents I use to work out where these tools genuinely hold and where they break. More at [github.com/bartosz-szubert](https://github.com/bartosz-szubert).
+Built as one of several small agents I use to work out where these tools genuinely hold and where they break. Sibling agent: [ai-act-monitor](https://github.com/bartosz-szubert/ai-act-monitor) — the same ratchet idea, applied to EU regulation instead of a race calendar.
